@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fábrica de Canais</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Painel de chão de fábrica: grafite, faixa amarela de sinalização, etiquetas de máquina. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --sunken:#e9e7e1; --line:#d6d3ca; --fg:#1d1b17; --muted:#6b675d;
+  --signal:#f5c400; --signal-ink:#1d1b17; --ok:#1f8a4c; --warn:#b86e00; --bad:#c2372b; --link:#1b5fb3;
+  --display:"Barlow Condensed", "Arial Narrow", sans-serif; --body:"Inter", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, monospace; --r:10px;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141412; --surface:#1d1c19; --sunken:#262521; --line:#36342e; --fg:#eeebe3; --muted:#a29d90;
+  --signal:#ffd21f; --signal-ink:#141412; --ok:#4cc27e; --warn:#f0a537; --bad:#ff6b5e; --link:#7fb2ff; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:6px 18px;border-bottom:4px solid var(--fg);
+  margin-bottom:22px;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:-10px;height:6px;
+  background:repeating-linear-gradient(135deg,var(--signal) 0 14px,var(--fg) 14px 28px)}
+h1{font:800 40px/1 var(--display);letter-spacing:.5px;text-transform:uppercase;margin:0}
+h2{font:800 26px/1.1 var(--display);text-transform:uppercase;letter-spacing:.4px;margin:0 0 12px;text-wrap:balance}
+h3{font:600 20px/1.2 var(--display);text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px;color:var(--muted)}
+nav{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+button,.btn{font:600 14px var(--body);border:2px solid var(--fg);background:var(--surface);color:var(--fg);border-radius:8px;
+  padding:8px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+button:hover{background:var(--sunken)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+button.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal-ink)}
+button.primary:hover{filter:brightness(.95)}
+button[disabled]{opacity:.5;cursor:not-allowed}
+nav button[aria-current="page"]{background:var(--fg);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.machine{display:flex;flex-direction:column;gap:10px;cursor:pointer;border-left:6px solid var(--line)}
+.machine.on{border-left-color:var(--ok)} .machine.off{border-left-color:var(--muted)} .machine.new{border-left-color:var(--signal)}
+.machine:hover{border-color:var(--fg)}
+.tag{font:500 12px var(--mono);color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--body);padding:3px 9px;border-radius:999px;
+  background:var(--sunken);white-space:nowrap}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok)} .chip.warn{color:var(--warn)} .chip.bad{color:var(--bad)} .chip.mute{color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.stats b{font:800 24px var(--display);display:block;line-height:1}
+.stats span{font-size:12px;color:var(--muted)}
+label{font-weight:600;font-size:13px;display:block;margin-bottom:4px}
+input,textarea,select{width:100%;font:15px var(--body);padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--bg);color:var(--fg)}
+textarea{min-height:90px;resize:vertical}
+.form{display:grid;gap:14px;grid-template-columns:1fr 1fr}
+.form .full{grid-column:1/-1}
+@media (max-width:640px){.form{grid-template-columns:1fr} h1{font-size:32px}}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+.note{border:1px dashed var(--line);border-radius:8px;padding:12px 14px;background:var(--sunken);font-size:14px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.steps li{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--sunken)}
+.steps li .s{font:500 12px var(--mono);width:90px;color:var(--muted)}
+.steps li.in_progress{outline:2px solid var(--signal)}
+.steps li.success .s{color:var(--ok)} .steps li.failure .s{color:var(--bad)}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:860px){.detail{grid-template-columns:1fr}}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+.tabs button{border:none;border-radius:8px 8px 0 0;background:none;padding:8px 12px}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg)}
+video{width:100%;max-width:300px;border-radius:12px;background:#000;display:block}
+.imgs{display:flex;gap:10px;flex-wrap:wrap}
+.imgs img{border-radius:10px;border:1px solid var(--line)}
+.imgs .perfil{width:120px;height:120px;border-radius:50%;object-fit:cover}
+.imgs .capa{width:100%;max-width:520px}
+.score{font:800 56px/1 var(--display);color:var(--fg)} .score small{font-size:22px;color:var(--muted)}
+ol.check{padding-left:20px;display:grid;gap:14px} ol.check li::marker{font:800 18px var(--display)}
+.scenes{display:flex;gap:6px;flex-wrap:wrap}
+.scenes span{font:600 13px var(--display);letter-spacing:.5px;text-transform:uppercase;background:var(--sunken);
+  border:1px solid var(--line);padding:4px 8px;border-radius:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:20;max-width:90vw}
+.copyable{display:flex;gap:8px;align-items:flex-start}
+.copyable pre{flex:1;white-space:pre-wrap;margin:0;font:14px var(--body);background:var(--sunken);padding:10px;border-radius:8px;min-width:0}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.pulse{animation:p 1.4s ease-in-out infinite}@keyframes p{50%{opacity:.4}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Fábrica de Canais</h1>
+  <span class="tag" id="repoTag"></span>
+  <nav>
+    <button data-view="canais">Canais</button>
+    <button data-view="novo" class="primary">+ Novo canal</button>
+    <button data-view="chaves">Chaves</button>
+  </nav>
+</header>
+
+<main id="app"></main>
+</div>
+
+<script type="module">
+import sodiumMod from "https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.13/+esm";
+
+const $ = (s, el = document) => el.querySelector(s);
+const app = $("#app");
+const LS = {
+  get(k, d = "") { try { return localStorage.getItem("fab:" + k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("fab:" + k, v); } catch {} },
+};
+const state = { token: LS.get("token"), repo: LS.get("repo", "wandersonDaSilva/fabrica-canais"), canais: [], secrets: null };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.append(t); setTimeout(() => t.remove(), 3500); }
+const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), c => c.charCodeAt(0)));
+const b64e = s => { const b = new TextEncoder().encode(s); let x = ""; b.forEach(c => x += String.fromCharCode(c)); return btoa(x); };
+const slug = s => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+
+// ------------------------------------------------------------------ GitHub
+async function gh(path, opts = {}) {
+  const r = await fetch(`https://api.github.com${path.replace("{repo}", state.repo)}`, {
+    ...opts,
+    headers: { Authorization: `Bearer ${state.token}`, Accept: opts.accept || "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28", ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+  });
+  if (r.status === 404 && opts.allow404) return null;
+  if (!r.ok) {
+    let m = ""; try { m = (await r.json()).message; } catch {}
+    if (r.status === 401) throw new Error("O token não foi aceito. Confira em Chaves.");
+    throw new Error(`GitHub respondeu ${r.status}${m ? ": " + m : ""}`);
+  }
+  if (opts.raw === "blob") return r.blob();
+  if (opts.raw === "text") return r.text();
+  return r.status === 204 ? null : r.json();
+}
+const lerArquivo = async (p) => { const j = await gh(`/repos/{repo}/contents/${p}`, { allow404: true }); return j ? { texto: b64d(j.content), sha: j.sha } : null; };
+const lerJSON = async (p) => { const a = await lerArquivo(p); return a ? { ...JSON.parse(a.texto), _sha: a.sha } : null; };
+async function salvarArquivo(p, texto, msg, sha) {
+  return gh(`/repos/{repo}/contents/${p}`, { method: "PUT", body: JSON.stringify({ message: msg, content: b64e(texto), sha }) });
+}
+const blobURL = async (p) => URL.createObjectURL(await gh(`/repos/{repo}/contents/${p}`, { accept: "application/vnd.github.raw", raw: "blob" }));
+
+async function despachar(workflow, inputs) {
+  await gh(`/repos/{repo}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: "main", inputs }) });
+}
+async function acharExecucao(workflow, titulo, depois) {
+  for (let i = 0; i < 12; i++) {
+    const j = await gh(`/repos/{repo}/actions/workflows/${workflow}/runs?per_page=10`);
+    const r = j.workflow_runs.find(x => x.display_title === titulo && new Date(x.created_at) >= depois - 15000);
+    if (r) return r;
+    await sleep(4000);
+  }
+  throw new Error("A execução não apareceu no GitHub. Veja a aba Actions do repositório.");
+}
+async function segredos() {
+  if (!state.secrets) {
+    const j = await gh(`/repos/{repo}/actions/secrets?per_page=100`);
+    state.secrets = new Set(j.secrets.map(s => s.name));
+  }
+  return state.secrets;
+}
+async function salvarSegredo(nome, valor) {
+  await sodiumMod.ready;
+  const s = sodiumMod;
+  const chave = await gh(`/repos/{repo}/actions/secrets/public-key`);
+  const sel = s.crypto_box_seal(s.from_string(valor), s.from_base64(chave.key, s.base64_variants.ORIGINAL));
+  await gh(`/repos/{repo}/actions/secrets/${nome}`, { method: "PUT",
+    body: JSON.stringify({ encrypted_value: s.to_base64(sel, s.base64_variants.ORIGINAL), key_id: chave.key_id }) });
+  (await segredos()).add(nome);
+}
+
+// ------------------------------------------------------------------ dados dos canais
+async function carregarCanais() {
+  const pastas = (await gh(`/repos/{repo}/contents/canais`, { allow404: true })) || [];
+  const ids = pastas.filter(p => p.type === "dir").map(p => p.name);
+  state.canais = await Promise.all(ids.map(async id => {
+    const [cfg, estado, fila] = await Promise.all([lerJSON(`canais/${id}/canal.json`), lerJSON(`canais/${id}/estado.json`), lerArquivo(`canais/${id}/temas.txt`)]);
+    const temas = fila ? fila.texto.split("\n").filter(l => l.trim() && !l.trim().startsWith("#")) : [];
+    return { id, cfg, estado, temas, fila };
+  }));
+  return state.canais;
+}
+const tgId = c => (c.cfg?.telegram || c.id).toUpperCase().replace(/-/g, "_");
+
+// ------------------------------------------------------------------ telas
+const views = { canais: telaCanais, novo: telaNovo, chaves: telaChaves };
+function ir(view, arg) {
+  document.querySelectorAll("nav button").forEach(b => b.dataset.view === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  if (!state.token && view !== "chaves") return telaChaves(true);
+  (view === "canal" ? telaCanal : views[view])(arg).catch(e => { app.innerHTML = `<div class="card"><h2>Algo deu errado</h2><p>${esc(e.message)}</p></div>`; });
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => ir(b.dataset.view));
+$("#repoTag").textContent = state.repo;
+
+async function telaCanais() {
+  app.innerHTML = `<p class="pulse">Carregando os canais…</p>`;
+  const [canais, sec] = await Promise.all([carregarCanais(), segredos().catch(() => new Set())]);
+  if (!canais.length) {
+    app.innerHTML = `<div class="card empty"><h2>Nenhum canal ainda</h2><p>Comece pela ideia: a Fábrica monta o canal, a marca e um Short de teste.</p><button class="primary" id="b">+ Novo canal</button></div>`;
+    $("#b").onclick = () => ir("novo"); return;
+  }
+  app.innerHTML = `<h2>Linha de produção</h2><div class="grid" id="g"></div>
+    <p class="hint">A rotina roda todo dia às 21h17 (Brasília), logo depois que a cota gratuita de imagens renova.</p>`;
+  for (const c of canais) {
+    const ok = sec.has(`TELEGRAM_TOKEN_${tgId(c)}`);
+    const ult = (c.estado?.execucoes || []).slice(-1)[0];
+    const st = !c.cfg ? ["new", "warn", "Em criação"] : c.cfg.ativo ? ["on", "ok", "Produzindo"] : ["off", "mute", "Pausado"];
+    const el = document.createElement("div");
+    el.className = `card machine ${st[0]}`; el.tabIndex = 0;
+    el.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(c.cfg?.nome || c.id)}</h2><span class="chip ${st[1]}">${st[2]}</span></div>
+      <span class="tag">canais/${esc(c.id)}</span>
+      <div class="stats"><div><b>${c.temas.length}</b><span>temas na fila</span></div>
+        <div><b>${(c.estado?.feitas || []).length}</b><span>Shorts feitos</span></div></div>
+      <div class="row">${ok ? '<span class="chip ok">Telegram ligado</span>' : '<span class="chip warn">Telegram pendente</span>'}
+        ${ult ? `<span class="chip ${ult.erros?.length ? "bad" : "ok"}">${esc(ult.quando)} ${ult.erros?.length ? "com erro" : "ok"}</span>` : ""}</div>`;
+    el.onclick = el.onkeydown = (e) => { if (e.type === "click" || e.key === "Enter") ir("canal", c.id); };
+    $("#g").append(el);
+  }
+}
+
+async function telaNovo() {
+  app.innerHTML = `<div class="detail"><div class="card">
+    <h2>Novo canal</h2>
+    <p class="hint" style="margin-top:-6px">Quatro agentes trabalham em sequência: o estrategista avalia o nicho, o roteirista desenha o formato
+      dos Shorts, o diretor de arte define o visual e o operador escreve os textos do YouTube. Depois saem a foto de perfil, a capa e um Short de teste.</p>
+    <form class="form" id="f" style="margin-top:14px">
+      <div class="full"><label for="ideia">Ideia do canal</label>
+        <textarea id="ideia" required placeholder="Ex.: curiosidades de animais que quase ninguém conhece, para adultos"></textarea></div>
+      <div><label for="estilo">Estilo visual (opcional)</label><input id="estilo" placeholder="Ex.: massinha, Funko, aquarela"></div>
+      <div><label for="voz">Voz</label><select id="voz"><option value="masculina">Masculina</option><option value="feminina">Feminina</option></select></div>
+      <div><label for="publico">Público (opcional)</label><input id="publico" placeholder="Ex.: adultos curiosos, 25 a 45 anos"></div>
+      <div><label for="cid">Identificador</label><input id="cid" required pattern="[a-z0-9][a-z0-9-]{1,39}" placeholder="curiosidades-animais">
+        <p class="hint">Letras minúsculas e hífens. Vira a pasta do canal.</p></div>
+      <div class="full row"><button class="primary" id="go">Montar canal</button><span class="hint">Leva uns 8 a 12 minutos e usa cerca de 40% da cota diária de imagens.</span></div>
+    </form></div>
+    <div class="card" id="prog"><h3>Esteira</h3><p class="hint">A esteira aparece aqui quando você mandar montar.</p></div></div>`;
+  const cid = $("#cid"); let mexeu = false;
+  cid.oninput = () => mexeu = true;
+  $("#ideia").oninput = e => { if (!mexeu) cid.value = slug(e.target.value.split(/[,.]/)[0]).slice(0, 30); };
+  $("#f").onsubmit = async e => {
+    e.preventDefault();
+    const id = cid.value.trim();
+    if (state.canais.some(c => c.id === id)) return toast("Esse identificador já existe. Escolha outro.");
+    $("#go").disabled = true;
+    try {
+      const t0 = Date.now();
+      await despachar("fabrica.yml", { acao: "nova", canal: id, ideia: $("#ideia").value.trim(), estilo: $("#estilo").value.trim(),
+                                       voz: $("#voz").value, publico: $("#publico").value.trim() });
+      toast("Pedido enviado à Fábrica");
+      await acompanhar("fabrica.yml", `Fábrica: nova ${id}`, t0, $("#prog"), () => ir("canal", id));
+    } catch (err) { toast(err.message); $("#go").disabled = false; }
+  };
+}
+
+async function acompanhar(workflow, titulo, t0, caixa, fim) {
+  caixa.innerHTML = `<h3>Esteira</h3><p class="pulse">Esperando o GitHub começar…</p>`;
+  const run = await acharExecucao(workflow, titulo, t0);
+  const nomes = { "Montar o canal (agentes)": "Agentes montam o canal", "Foto de perfil e capa": "Foto de perfil e capa",
+    "Short de teste": "Short de teste", "Mais temas": "Novos temas", "Produzir": "Produzir o Short", "Guardar": "Guardar no repositório",
+    "Guardar fila e estado": "Guardar fila e estado", "Run pip install -q -r requirements.txt": "Preparar a máquina" };
+  while (true) {
+    const jobs = await gh(`/repos/{repo}/actions/runs/${run.id}/jobs`);
+    const passos = jobs.jobs.flatMap(j => j.steps || []).filter(s => nomes[s.name] && s.conclusion !== "skipped");
+    const r = await gh(`/repos/{repo}/actions/runs/${run.id}`);
+    caixa.innerHTML = `<h3>Esteira</h3><ul class="steps">${passos.map(s => `<li class="${s.status === "in_progress" ? "in_progress" : s.conclusion || ""}">
+      <span class="s">${s.status === "completed" ? (s.conclusion === "success" ? "pronto" : s.conclusion === "failure" ? "falhou" : s.conclusion) : s.status === "in_progress" ? "fazendo…" : "na fila"}</span>${esc(nomes[s.name])}</li>`).join("") || '<li class="in_progress"><span class="s">fazendo…</span>Ligando a máquina</li>'}</ul>
+      <p class="hint"><a href="${r.html_url}" target="_blank" rel="noopener">Ver no GitHub</a></p>`;
+    if (r.status === "completed") {
+      const falhas = passos.filter(s => s.conclusion === "failure").length;
+      caixa.insertAdjacentHTML("beforeend", r.conclusion === "success"
+        ? `<p><b>${falhas ? "Terminou com etapas a refazer." : "Pronto."}</b></p><button class="primary" id="abrir">Abrir o canal</button>`
+        : `<p><b>A esteira parou.</b> Abra o link acima para ver o motivo.</p>`);
+      const b = $("#abrir", caixa); if (b) b.onclick = fim;
+      return r;
+    }
+    await sleep(8000);
+  }
+}
+
+async function telaCanal(id) {
+  app.innerHTML = `<p class="pulse">Abrindo o canal…</p>`;
+  if (!state.canais.length) await carregarCanais();
+  const c = state.canais.find(x => x.id === id) || (await carregarCanais()).find(x => x.id === id);
+  if (!c?.cfg) throw new Error("Esse canal ainda não tem canal.json. A Fábrica pode ter parado no meio: rode de novo.");
+  const ficha = await lerJSON(`canais/${id}/ficha.json`);
+  const sec = await segredos().catch(() => new Set());
+  const est = ficha?.estrategia || {};
+  app.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <div><button id="voltar">← Canais</button></div>
+      <div class="row"><span class="chip ${c.cfg.ativo ? "ok" : "mute"}">${c.cfg.ativo ? "Produzindo" : "Pausado"}</span>
+        <button id="ativar" class="${c.cfg.ativo ? "" : "primary"}">${c.cfg.ativo ? "Pausar" : "Ativar produção diária"}</button></div></div>
+    <h2 style="font-size:40px">${esc(c.cfg.nome)}</h2>
+    <p class="hint" style="margin-top:-8px">${esc(c.cfg.descricao_curta || "")} · <span class="tag">${esc(c.cfg.handle || "")}</span></p>
+    <div class="tabs" role="tablist">${["Ficha", "Prévia", "Marca", "Fila", "Lançamento"].map((t, i) => `<button role="tab" data-t="${i}" aria-selected="${i === 0}">${t}</button>`).join("")}</div>
+    <section id="aba"></section>`;
+  $("#voltar").onclick = () => ir("canais");
+  $("#ativar").onclick = async () => {
+    const atual = await lerJSON(`canais/${id}/canal.json`); const sha = atual._sha; delete atual._sha;
+    atual.ativo = !atual.ativo;
+    await salvarArquivo(`canais/${id}/canal.json`, JSON.stringify(atual, null, 2) + "\n", `${id}: ${atual.ativo ? "ativar" : "pausar"} pela Fábrica`, sha);
+    c.cfg.ativo = atual.ativo; toast(atual.ativo ? "Canal ativado: produz hoje às 21h17" : "Canal pausado"); telaCanal(id);
+  };
+  const abas = [
+    () => abaFicha(c, ficha), () => abaPrevia(c), () => abaMarca(c), () => abaFila(c), () => abaLancamento(c, ficha, sec)];
+  document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+    abas[+b.dataset.t]().catch(e => $("#aba").innerHTML = `<p>${esc(e.message)}</p>`);
+  });
+  abas[0]();
+}
+
+async function abaFicha(c, ficha) {
+  const e = ficha?.estrategia || {};
+  const cenas = c.cfg.cenas.map(s => `<span>${esc(s.titulo || { gancho: "Gancho", fim: "Fim", salario: "Salário" }[s.tipo] || s.tipo)}</span>`).join("");
+  $("#aba").innerHTML = `<div class="detail"><div class="card" style="display:grid;gap:16px">
+      ${e.veredito ? `<div><h3>Veredito do estrategista</h3><p style="margin:0">${esc(e.veredito)}</p></div>` : ""}
+      ${e.promessa ? `<div><h3>Promessa</h3><p style="margin:0">${esc(e.promessa)}</p></div>` : ""}
+      <div><h3>Formato do Short</h3><div class="scenes">${cenas}</div><p class="hint">${esc(e.formato_short || "")}</p></div>
+      ${e.concorrencia ? `<div><h3>Concorrência</h3><p style="margin:0">${esc(e.concorrencia)}</p></div>` : ""}
+      ${(e.riscos || []).length ? `<div><h3>Riscos e cuidados</h3><ul>${e.riscos.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+      ${(e.ideias_video_longo || []).length ? `<div><h3>Vídeos longos para depois</h3><ul>${e.ideias_video_longo.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+    </div><div class="card" style="display:grid;gap:14px">
+      ${e.nota != null ? `<div><h3>Potencial</h3><div class="score">${esc(e.nota)}<small>/10</small></div></div>` : ""}
+      <div><h3>Público</h3><p style="margin:0">${esc(c.cfg.publico || e.publico || "")}</p></div>
+      ${e.rpm_estimado ? `<div><h3>RPM estimado</h3><p style="margin:0">${esc(e.rpm_estimado)}</p><p class="hint">Estimativa da IA, não é garantia.</p></div>` : ""}
+      <div><h3>Voz</h3><p style="margin:0" class="tag">${esc(c.cfg.voz)}</p></div>
+    </div></div>`;
+}
+
+async function abaPrevia(c) {
+  $("#aba").innerHTML = `<p class="pulse">Buscando a prévia…</p>`;
+  const resumo = await lerJSON(`canais/${c.id}/previa/resumo.json`);
+  if (!resumo) {
+    $("#aba").innerHTML = `<div class="card empty"><p>Este canal ainda não tem Short de teste.</p><button class="primary" id="refazer">Fazer Short de teste</button></div>`;
+  } else {
+    $("#aba").innerHTML = `<div class="detail"><div class="card"><video id="v" controls playsinline></video></div>
+      <div class="card"><h3>Tema</h3><p>${esc(resumo.tema)} · ${esc(resumo.duracao)} s · ${esc(resumo.quando)}</p>
+      ${(resumo.cortadas || []).length ? `<h3>A conferência cortou</h3><ul>${resumo.cortadas.map(x => `<li class="hint">${esc(x)}</li>`).join("")}</ul>` : '<p class="hint">A conferência aprovou tudo.</p>'}
+      <button id="refazer">Refazer o teste</button></div></div>`;
+    blobURL(`canais/${c.id}/previa/previa.mp4`).then(u => $("#v").src = u).catch(e => toast(e.message));
+  }
+  $("#refazer").onclick = () => rodarFabrica(c.id, "previa");
+}
+
+async function rodarFabrica(id, acao, extra = {}) {
+  const t0 = Date.now();
+  await despachar("fabrica.yml", { acao, canal: id, ...extra });
+  $("#aba").innerHTML = `<div class="card" id="prog"></div>`;
+  await acompanhar("fabrica.yml", `Fábrica: ${acao} ${id}`, t0, $("#prog"), () => telaCanal(id));
+}
+
+async function abaMarca(c) {
+  $("#aba").innerHTML = `<p class="pulse">Buscando as imagens…</p>`;
+  const lista = (await gh(`/repos/{repo}/contents/canais/${c.id}/marca`, { allow404: true })) || [];
+  const perfis = lista.filter(f => f.name.startsWith("perfil")), capa = lista.find(f => f.name === "capa.jpg");
+  $("#aba").innerHTML = `<div class="card" style="display:grid;gap:16px">
+    <div><h3>Foto de perfil</h3><div class="imgs" id="pf">${perfis.length ? "" : '<p class="hint">Ainda não gerada.</p>'}</div></div>
+    <div><h3>Capa (2560×1440)</h3><div class="imgs" id="cp">${capa ? "" : '<p class="hint">Ainda não gerada.</p>'}</div>
+      <p class="hint">O nome fica dentro da área que aparece no celular. Toque numa imagem para abrir em tamanho real e salvar.</p></div>
+    <div><button id="refazer">Gerar outra marca</button></div></div>`;
+  for (const f of perfis) blobURL(f.path).then(u => $("#pf").insertAdjacentHTML("beforeend", `<a href="${u}" target="_blank" rel="noopener"><img class="perfil" src="${u}" alt="${esc(f.name)}"></a>`));
+  if (capa) blobURL(capa.path).then(u => $("#cp").innerHTML = `<a href="${u}" target="_blank" rel="noopener"><img class="capa" src="${u}" alt="Capa"></a>`);
+  $("#refazer").onclick = () => rodarFabrica(c.id, "marca");
+}
+
+async function abaFila(c) {
+  const f = await lerArquivo(`canais/${c.id}/temas.txt`);
+  $("#aba").innerHTML = `<div class="card" style="display:grid;gap:12px">
+    <p class="hint" style="margin:0">Um tema por linha; a primeira é a próxima. Linhas com # são comentários.${c.cfg.campos_fila?.length > 1 ? ` Formato: ${esc(c.cfg.campos_fila.join(" | "))}.` : ""}</p>
+    <textarea id="fila" style="min-height:340px;font:14px var(--mono)">${esc(f?.texto || "")}</textarea>
+    <div class="row"><button class="primary" id="salvar">Salvar fila</button><button id="mais">Pedir mais 30 temas à IA</button></div></div>`;
+  $("#salvar").onclick = async () => {
+    const atual = await lerArquivo(`canais/${c.id}/temas.txt`);
+    await salvarArquivo(`canais/${c.id}/temas.txt`, $("#fila").value.trimEnd() + "\n", `${c.id}: fila editada pela Fábrica`, atual?.sha);
+    toast("Fila salva");
+  };
+  $("#mais").onclick = () => rodarFabrica(c.id, "temas", { quantos: "30" });
+}
+
+async function abaLancamento(c, ficha, sec) {
+  const tg = tgId(c), ligado = sec.has(`TELEGRAM_TOKEN_${tg}`) && sec.has(`TELEGRAM_CHAT_ID_${tg}`);
+  const yt = ficha?.youtube || {};
+  const copia = (t, id) => `<div class="copyable"><pre id="${id}">${esc(t)}</pre><button data-copy="${id}">Copiar</button></div>`;
+  $("#aba").innerHTML = `<div class="card"><ol class="check">
+    <li><h3>Bot do Telegram ${ligado ? '<span class="chip ok">ligado</span>' : '<span class="chip warn">pendente</span>'}</h3>
+      <p>No Telegram, fale com <b>@BotFather</b>, mande <code>/newbot</code>, dê um nome (ex.: ${esc(c.cfg.nome)} Bot) e copie o token.
+      Depois mande qualquer mensagem para o bot novo e cole o token aqui.</p>
+      <div class="row"><input id="tok" type="password" autocomplete="off" placeholder="token do bot" style="max-width:420px"><button class="primary" id="ligar">Ligar o Telegram</button></div>
+      <p class="hint">O token vai criptografado direto para os segredos do GitHub; esta página não guarda.</p></li>
+    <li><h3>Canal no YouTube</h3><p>Crie o canal em <b>youtube.com/channel_switcher → Crie um canal</b> com o nome <b>${esc(c.cfg.nome)}</b>
+      e o identificador ${esc((ficha?.estrategia?.handles || [c.cfg.handle]).join(" ou "))}. Suba a foto e a capa da aba Marca.</p></li>
+    <li><h3>Descrição do canal</h3>${copia(yt.descricao_canal || "", "d1")}</li>
+    <li><h3>Palavras-chave</h3>${copia((yt.palavras_chave || []).join(", "), "d2")}<p class="hint">Categoria sugerida: ${esc(yt.categoria || "Educação")}.</p></li>
+    <li><h3>Padrão de envio (fim da descrição)</h3>${copia(c.cfg.youtube?.rodape || "", "d3")}</li>
+    <li><h3>Ligar a produção</h3><p>Com o Telegram ligado, clique em <b>Ativar produção diária</b> no topo. O primeiro Short sai hoje às 21h17.</p></li>
+  </ol></div>`;
+  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
+    const t = $("#" + b.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(t); toast("Copiado"); } catch { const r = document.createRange(); r.selectNodeContents($("#" + b.dataset.copy)); getSelection().removeAllRanges(); getSelection().addRange(r); }
+  });
+  $("#ligar").onclick = async () => {
+    const tok = $("#tok").value.trim();
+    if (!/^\d+:[\w-]{30,}$/.test(tok)) return toast("Isso não parece um token de bot. Copie de novo no BotFather.");
+    $("#ligar").disabled = true;
+    try {
+      const me = await (await fetch(`https://api.telegram.org/bot${tok}/getMe`)).json();
+      if (!me.ok) throw new Error("O Telegram não aceitou esse token.");
+      const up = await (await fetch(`https://api.telegram.org/bot${tok}/getUpdates`)).json();
+      const msg = (up.result || []).map(u => u.message || u.channel_post || u.my_chat_member).filter(Boolean).pop();
+      if (!msg) throw new Error(`Mande uma mensagem para @${me.result.username} no Telegram e clique de novo.`);
+      const chat = msg.chat.id;
+      await salvarSegredo(`TELEGRAM_TOKEN_${tg}`, tok);
+      await salvarSegredo(`TELEGRAM_CHAT_ID_${tg}`, String(chat));
+      await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chat, text: `✅ ${c.cfg.nome} ligado à Fábrica. Os Shorts vão chegar aqui.` }) });
+      $("#tok").value = ""; toast("Telegram ligado. Mandei uma mensagem de teste.");
+      abaLancamento(c, ficha, await segredos());
+    } catch (e) { toast(e.message); $("#ligar").disabled = false; }
+  };
+}
+
+async function telaChaves(primeira = false) {
+  let sec = new Set();
+  if (state.token) sec = await segredos().catch(() => new Set());
+  const chaves = [
+    ["GEMINI_API_KEY", "Gemini (roteiros)", "aistudio.google.com → Get API key"],
+    ["GOOGLE_TTS_KEY", "Google Text-to-Speech (narração)", "console.cloud.google.com → Credenciais"],
+    ["CLOUDFLARE_API_TOKEN", "Cloudflare Workers AI (imagens)", "dash.cloudflare.com → My Profile → API Tokens"],
+    ["CLOUDFLARE_ACCOUNT_ID", "ID da conta Cloudflare", "aparece na página inicial do painel da Cloudflare"],
+  ];
+  app.innerHTML = `<div class="detail"><div class="card" style="display:grid;gap:16px">
+    <h2>${primeira ? "Ligar a Fábrica" : "Chaves"}</h2>
+    <div><label for="tk">Token do GitHub</label>
+      <div class="row"><input id="tk" type="password" autocomplete="off" placeholder="github_pat_…" style="flex:1;min-width:0"><button class="primary" id="salvaTk">Conectar</button></div>
+      <p class="hint">${state.token ? "Conectado. Cole outro para trocar." : "Crie em github.com/settings/personal-access-tokens/new (Fine-grained), só para o repositório fabrica-canais, com Actions, Contents e Secrets em Read and write."}
+      Fica guardado só neste navegador.</p></div>
+    <div><label for="rp">Repositório</label><input id="rp" value="${esc(state.repo)}"></div>
+    ${state.token ? `<div><h3>Segredos do repositório</h3><div style="display:grid;gap:12px">${chaves.map(([n, t, h]) => `
+      <div><label for="s_${n}">${esc(t)} ${sec.has(n) ? '<span class="chip ok">cadastrada</span>' : '<span class="chip warn">falta</span>'}</label>
+      <div class="row"><input id="s_${n}" type="password" autocomplete="off" placeholder="${sec.has(n) ? "cole para trocar" : "cole aqui"}" style="flex:1;min-width:0"><button data-s="${n}">Salvar</button></div>
+      <p class="hint">${esc(h)}</p></div>`).join("")}</div></div>` : ""}
+    </div><div class="card note">As chaves vão criptografadas direto para os segredos do GitHub (o GitHub só devolve o nome, nunca o valor).
+      O token do GitHub fica no armazenamento deste navegador; use um token só com acesso ao repositório da Fábrica.</div></div>`;
+  $("#salvaTk").onclick = async () => {
+    const v = $("#tk").value.trim(); if (v) state.token = v;
+    state.repo = $("#rp").value.trim(); state.secrets = null;
+    try { await gh(`/repos/{repo}`); LS.set("token", state.token); LS.set("repo", state.repo); $("#repoTag").textContent = state.repo; toast("Conectado"); ir("canais"); }
+    catch (e) { toast(e.message); }
+  };
+  document.querySelectorAll("[data-s]").forEach(b => b.onclick = async () => {
+    const n = b.dataset.s, v = $("#s_" + n).value.trim(); if (!v) return toast("Cole o valor antes de salvar.");
+    try { await salvarSegredo(n, v); toast(`${n} salva`); telaChaves(); } catch (e) { toast(e.message); }
+  });
+}
+
+ir(state.token ? "canais" : "chaves");
+</script>
+</body>
+</html>
